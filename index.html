@@ -59,7 +59,7 @@
     "checkinTime": "15:00",
     "checkoutTime": "11:00",
     "amenityFeature": [
-      {"@type": "LocationFeatureSpecification", "name": "Private Pool", "value": true},
+      {"@type": "LocationFeatureSpecification", "name": "Heated Swim Spa", "value": true},
       {"@type": "LocationFeatureSpecification", "name": "Grand Piano", "value": true},
       {"@type": "LocationFeatureSpecification", "name": "Chef's Kitchen", "value": true},
       {"@type": "LocationFeatureSpecification", "name": "8 Wood-Burning Fireplaces", "value": true},
@@ -742,7 +742,7 @@ nav.scrolled .nav-center-logo img { height: 38px; }
   <div class="spaces-header section-inner">
     <span class="label fade-up">The Spaces</span>
     <h2 class="headline fade-up d1" style="margin-top:1rem;">Every Room<br><em>Has a Story</em></h2>
-    <p class="subheadline fade-up d2" style="margin-top:1rem;max-width:560px;">10 bedrooms across three floors, grand communal spaces, and 9 bathrooms — each with its own character and a century of history.</p>
+    <p class="subheadline fade-up d2" style="margin-top:1rem;max-width:560px;">9 bedrooms across three floors, grand communal spaces, and 6 bathrooms — each with its own character and a century of history.</p>
   </div>
 </section>
 
@@ -795,11 +795,11 @@ nav.scrolled .nav-center-logo img { height: 38px; }
       </div>
     </div>
     <div class="space-card fade-up d5">
-      <div class="space-card-img"><img src="photos/spaces-pool.jpg" alt="The Private Pool" loading="lazy" style="object-position: center 30%;" /></div>
+      <div class="space-card-img"><img src="photos/spaces-pool.jpg" alt="The Swim Spa" loading="lazy" style="object-position: center 30%;" /></div>
       <div class="space-card-body">
         <span class="space-card-eyebrow">Outdoor</span>
-        <h3 class="space-card-title">The Private Pool</h3>
-        <p class="space-card-text">A large heated swim spa and jacuzzi — exclusively yours. Open year-round, lit at night, and set in the private garden behind the mansion.</p>
+        <h3 class="space-card-title">The Swim Spa</h3>
+        <p class="space-card-text">A large heated swim spa and jacuzzi — exclusively yours. Lit at night and set in the private garden behind the mansion.</p>
       </div>
     </div>
   </div>
@@ -900,7 +900,7 @@ nav.scrolled .nav-center-logo img { height: 38px; }
       <div class="cta-card-body">
         <span class="space-card-eyebrow">Exclusive Occupancy</span>
         <h3 class="space-card-title">Reserve the Estate</h3>
-        <p class="space-card-text">All 10 bedrooms. No other guests. The entire mansion — exclusively yours.</p>
+        <p class="space-card-text">All 9 bedrooms. No other guests. The entire mansion — exclusively yours.</p>
         <a href="#reserve" class="cta-reserve-link">Check Availability &rarr;</a>
       </div>
     </div>
@@ -1024,7 +1024,7 @@ nav.scrolled .nav-center-logo img { height: 38px; }
     {"@type":"Question","name":"How far is The Hillard from New York City?","acceptedAnswer":{"@type":"Answer","text":"Approximately 2.5 hours from New York City via I-80 W, and approximately 2 hours from Philadelphia."}},
     {"@type":"Question","name":"Can The Hillard host a wedding or private event?","acceptedAnswer":{"@type":"Answer","text":"Yes. The grand parlor, formal dining room, and grounds are available for ceremonies, receptions, rehearsal dinners, corporate retreats, and milestone celebrations."}},
     {"@type":"Question","name":"What is the minimum stay at The Hillard?","acceptedAnswer":{"@type":"Answer","text":"The minimum stay is 3 nights. For peak weekends and holidays, longer minimums may apply."}},
-    {"@type":"Question","name":"What amenities does The Hillard include?","acceptedAnswer":{"@type":"Answer","text":"A private pool, Ludwig concert grand piano, 8 wood-burning fireplaces, chef's kitchen, formal dining room, library, and grand staircase. All bedrooms have private or en-suite bathrooms."}},
+    {"@type":"Question","name":"What amenities does The Hillard include?","acceptedAnswer":{"@type":"Answer","text":"A heated swim spa and jacuzzi, a Ludwig baby grand piano, 8 wood-burning fireplaces, chef's kitchen, formal dining room, library, and grand staircase. Nine bedrooms share six bathrooms."}},
     {"@type":"Question","name":"What are the check-in and check-out times at The Hillard?","acceptedAnswer":{"@type":"Answer","text":"Check-in is at 3:00 PM and check-out is at 11:00 AM. Early check-in or late check-out may be available upon request."}}
   ]
 }
@@ -1230,10 +1230,30 @@ nav.scrolled .nav-center-logo img { height: 38px; }
   const bpCheckout = document.getElementById('bp-checkout');
   const bpNights   = document.getElementById('bp-nights');
   const ICAL_WORKER = 'https://hillard-ical-proxy.dreamriverventures.workers.dev';
+  const MIN_NIGHTS = 2;
   let blockedRanges = null;
   let fpIn = null, fpOut = null;
 
+  // Dates as YYYY-MM-DD in the visitor's own day (UTC turns over at 7-8 pm in New York)
+  function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function addDaysStr(s, n) {
+    const d = new Date(s + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return ymd(d);
+  }
+  // The first booked night after a date: a stay must check out on or before it
+  function nextBlockedNight(dateStr) {
+    return blockedRanges.map(r => r.from).filter(f => f > dateStr).sort()[0] || null;
+  }
+  // Booked nights {from, to}: the first booked day is still free to check out on
+  function checkoutBlocks() {
+    return blockedRanges.map(r => ({ from: addDaysStr(r.from, 1), to: addDaysStr(r.to, 1) }));
+  }
+
   function updateNights() {
+    bpNights.textContent = '';
     if (bpCheckin.value && bpCheckout.value) {
       const diff = (new Date(bpCheckout.value) - new Date(bpCheckin.value)) / 86400000;
       bpNights.textContent = diff > 0 ? diff + (diff === 1 ? ' night' : ' nights') + ' selected' : '';
@@ -1247,23 +1267,34 @@ nav.scrolled .nav-center-logo img { height: 38px; }
         blockedRanges = await res.json();
       } catch { blockedRanges = []; }
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = ymd(new Date());
     if (fpIn)  { fpIn.destroy();  fpIn  = null; }
     if (fpOut) { fpOut.destroy(); fpOut = null; }
     fpIn = flatpickr(bpCheckin, {
       minDate: today,
-      disable: blockedRanges,
+      // booked nights, and days without room for the minimum stay before the next booking
+      disable: blockedRanges.concat([function(date) {
+        const s = ymd(date), next = nextBlockedNight(s);
+        return !!next && next < addDaysStr(s, MIN_NIGHTS);
+      }]),
       disableMobile: true,
       dateFormat: 'Y-m-d',
       appendTo: document.body,
       onChange: function(_, dateStr) {
-        if (fpOut) fpOut.set('minDate', dateStr);
+        if (fpOut && dateStr) {
+          const min = addDaysStr(dateStr, MIN_NIGHTS), max = nextBlockedNight(dateStr);
+          fpOut.set('minDate', min);
+          fpOut.set('maxDate', max);
+          const out = bpCheckout.value;
+          if (out && (out < min || (max && out > max))) fpOut.clear();
+          if (!bpCheckout.value) fpOut.jumpToDate(min);
+        }
         updateNights();
       }
     });
     fpOut = flatpickr(bpCheckout, {
-      minDate: today,
-      disable: blockedRanges,
+      minDate: addDaysStr(today, MIN_NIGHTS),
+      disable: checkoutBlocks(),
       disableMobile: true,
       dateFormat: 'Y-m-d',
       appendTo: document.body,
@@ -1285,11 +1316,12 @@ nav.scrolled .nav-center-logo img { height: 38px; }
       occasion:   fd.get('occasion') || ''
     };
     try {
-      await fetch('https://hook.us2.make.com/xjoztftvcv9i951amwmcp5ocfd4dq1uk', {
+      const sent = await fetch('https://hook.us2.make.com/xjoztftvcv9i951amwmcp5ocfd4dq1uk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (!sent.ok) throw new Error('inquiry not received');
       document.getElementById('bpForm').style.display = 'none';
       document.getElementById('bpSuccess').style.display = 'block';
     } catch {
